@@ -1,0 +1,15 @@
+
+streamlit
+gradio
+requests
+beautifulsoup4
+newspaper3k
+nltk
+transformers
+torch
+gtts
+flask
+scikit-learn
+python-dotenv
+
+
