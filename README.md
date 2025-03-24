@@ -18,5 +18,5 @@ This is a web-based application that extracts key details from multiple news art
 
 ### 1️⃣ Clone the Repository
 ```bash
-git clone https://github.com/your-username/news-summarization-tts.git
-cd news-summarization-tts
+git clone https://github.com/vismayavt/news-summarization-tts.git
+cd news_summarization_tts
