@@ -1,90 +1,82 @@
 import requests
 from bs4 import BeautifulSoup
-import nltk
-from newspaper import Article
 from transformers import pipeline
-import gtts
+from keybert import KeyBERT
+from gtts import gTTS
 import os
+from collections import Counter
 
-nltk.download('punkt')
+# News Scraper using BeautifulSoup
+def fetch_news(company_name):
+    search_url = f"https://www.bing.com/news/search?q={company_name}"
+    response = requests.get(search_url)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    articles = []
+    for item in soup.find_all("a", class_="title", limit=10):
+        title = item.text
+        url = item["href"]
+        articles.append({"Title": title, "Content": url})
+    
+    return articles
+
+# Summarization Model
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+
+def summarize_text(text):
+    if not text:
+        return "No summary available."
+    summary = summarizer(text, max_length=100, min_length=30, do_sample=False)
+    return summary[0]["summary_text"]
 
 # Sentiment Analysis Model
 sentiment_pipeline = pipeline("sentiment-analysis")
 
-def extract_news(company):
-    """Extracts news articles using Google News (Limited scraping workaround)."""
-    query = company.replace(" ", "+")  # Encode spaces for search URL
-    url = f"https://news.google.com/search?q={query}&hl=en&gl=US&ceid=US:en"
+def analyze_sentiment(text):
+    if not text:
+        return "Neutral"
+    sentiment = sentiment_pipeline(text)[0]["label"]
+    return "Positive" if sentiment == "POSITIVE" else "Negative"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
-    
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print(f"Failed to fetch news: {response.status_code}")
+# Topic Extraction using KeyBERT
+kw_model = KeyBERT()
+
+def extract_topics(text):
+    if not text:
         return []
+    keywords = kw_model.extract_keywords(text, keyphrase_ngram_range=(1, 2), stop_words="english")
+    return [kw[0] for kw in keywords[:5]]
 
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    articles = []
-    for link in soup.find_all('a', href=True)[:10]:  # Extract up to 10 articles
-        href = link["href"]
-        
-        # Fix Google News URL format
-        if href.startswith("./articles/"):
-            article_url = "https://news.google.com" + href[1:]
-        elif href.startswith("http"):
-            article_url = href  # Sometimes Google links to external sites
-        else:
-            continue
-
-        # Use newspaper3k to extract full text
-        article = Article(article_url)
-        try:
-            article.download()
-            article.parse()
-            article.nlp()
-
-            articles.append({
-                "title": article.title,
-                "summary": article.summary,
-                "text": article.text,
-                "url": article_url
-            })
-        except Exception as e:
-            print(f"Skipping article due to error: {e}")
-            continue
-
-    return articles
-def get_news_articles(company_name):
-    """Fetches news articles, performs sentiment analysis, and structures the output."""
-    news_articles = extract_news(company_name)
-    
-    for article in news_articles:
-        article["sentiment"] = analyze_sentiment(article["text"])
-
-    return news_articles
-
-
+# Comparative Sentiment Analysis
 def compare_sentiments(articles):
-    """Perform sentiment comparison across multiple articles."""
-    sentiment_counts = {"Positive": 0, "Negative": 0, "Neutral": 0}
+    sentiments = [article["Sentiment"] for article in articles]
+    sentiment_counts = Counter(sentiments)
 
-    for article in articles:
-        sentiment = article.get("sentiment", "Neutral")  # Default to Neutral if missing
-        sentiment_counts[sentiment] += 1
+    return {
+        "Sentiment Distribution": dict(sentiment_counts),
+        "Coverage Differences": [
+            {
+                "Comparison": f"Article {i+1} vs Article {i+2}",
+                "Impact": "Different perspectives on company performance"
+            }
+            for i in range(len(articles)-1)
+        ]
+    }
 
-    return sentiment_counts
+# Hindi Text-to-Speech
 
-    
 
-def generate_tts(text, filename="output.mp3"):
-    """Convert text to Hindi speech using Google TTS."""
-    try:
-        tts = gtts.gTTS(text=text, lang="hi")
-        tts.save(filename)
-        return filename
-    except Exception as e:
-        print(f"TTS generation failed: {e}")
-        return None
+def text_to_speech_hindi(text):
+    from gtts import gTTS
+
+    # Ensure the 'static/' directory exists
+    output_dir = "static"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)  # Create 'static/' if missing
+
+    # Generate and save speech
+    tts = gTTS(text=text, lang="hi")
+    output_path = os.path.join(output_dir, "output.mp3")
+    tts.save(output_path)
+
+    return output_path  # Return path for Flask to serve

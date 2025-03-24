@@ -1,27 +1,22 @@
-from flask import Flask, request, jsonify
-from utils import get_news_articles, compare_sentiments, generate_tts
+from utils import fetch_news, summarize_text, analyze_sentiment, extract_topics, compare_sentiments, text_to_speech_hindi
 
-app = Flask(__name__)
+def generate_output(company_name):
+    articles = fetch_news(company_name)
 
-@app.route('/fetch_news', methods=['GET'])
-def fetch_news():
-    company = request.args.get('company')
-    if not company:
-        return jsonify({"error": "Company name is required"}), 400
-    
-    articles = get_news_articles(company)
-    sentiment_analysis = compare_sentiments(articles)
-    summary_text = f"{company} के समाचारों का विश्लेषण किया गया।"
-    
-    audio_file = generate_tts(summary_text)
-    
-    response = {
-        "company": company,
-        "news": sentiment_analysis,
-        "audio": audio_file
+    for article in articles:
+        article["Summary"] = summarize_text(article["Content"])
+        article["Sentiment"] = analyze_sentiment(article["Content"])
+        article["Topics"] = extract_topics(article["Content"])
+
+    sentiment_comparison = compare_sentiments(articles)
+
+    final_report = {
+        "Company": company_name,
+        "Articles": articles,
+        "Comparative Sentiment Score": sentiment_comparison,
+        "Final Sentiment Analysis": f"{company_name}’s latest news coverage is mostly positive."
     }
-    
-    return jsonify(response)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    text_to_speech_hindi(final_report["Final Sentiment Analysis"])
+
+    return final_report
