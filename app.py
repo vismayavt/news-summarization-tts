@@ -1,40 +1,37 @@
 import streamlit as st
 import requests
 
-st.title("📰 News Summarization & Sentiment Analysis")
+st.set_page_config(page_title="News Summarization & Hindi TTS", layout="wide")
 
-# User input for company name
-company = st.text_input("Enter a company name:", "")
+# Title of the App
+st.title("📰 News Summarization & Hindi TTS")
+
+# Input box for the company name
+company = st.text_input("Enter Company Name", "")
 
 if st.button("Fetch News"):
     if company:
-        api_url = f"http://127.0.0.1:5000/news?company={company}"
-        response = requests.get(api_url)
+        with st.spinner("Fetching news..."):
+            # Call the API (ensure Flask backend is running)
+            response = requests.get(f"http://127.0.0.1:8000/fetch_news?company={company}")
 
-        if response.status_code == 200:
-            data = response.json()
-            st.write(f"### News for {data['company']}")
             
-            for article in data["articles"]:
-                st.subheader(article["title"])
-                st.write(article["summary"])
-                st.write(f"**Sentiment:** {article['sentiment']}")
-                st.write(f"[Read More]({article['url']})")
-                st.write("---")
-        else:
-            st.error("Error fetching news!")
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Display Sentiment Analysis
+                st.subheader("Sentiment Analysis")
+                for article in data["news"]["articles"]:
+                    st.write(f"**Title:** {article['title']}")
+                    st.write(f"**Summary:** {article['summary']}")
+                    st.write(f"**Sentiment:** {article['sentiment']}")
+                    st.write("---")
+                
+                # Display Audio
+                st.subheader("🔊 Hindi Speech Output")
+                st.audio(data["audio"], format="audio/mp3")
+            else:
+                st.error("Failed to fetch news. Try again later!")
     else:
         st.warning("Please enter a company name.")
-
-if st.button("Generate Hindi Speech"):
-    text = st.text_area("Enter text for Hindi speech conversion:")
-    
-    if text:
-        api_url = "http://127.0.0.1:5000/tts"
-        response = requests.post(api_url, json={"text": text})
-
-        if response.status_code == 200:
-            st.audio(response.content, format="audio/mp3")
-        else:
-            st.error("Error generating speech!")
 
