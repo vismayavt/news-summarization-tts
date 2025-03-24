@@ -6,20 +6,29 @@ st.title("📢 News Summarization & TTS App")
 company_name = st.text_input("Enter Company Name:", "Tesla")
 
 if st.button("Analyze News"):
-    response = requests.get(f"http://127.0.0.1:5000/news?company={company_name}")
-    if response.status_code == 200:
+    url = f"http://127.0.0.1:5001/news?company={company_name}"  # Adjust Flask API URL
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
         data = response.json()
 
-        st.write(f"### Company: {data['Company']}")
+        st.write(f"### Company: {data.get('Company', 'N/A')}")
+        for article in data.get('Articles', []):
+            st.subheader(article.get("Title", "No Title"))
+            st.write(f"📝 **Summary:** {article.get('Summary', 'No Summary')}")
+            st.write(f"📌 **Sentiment:** {article.get('Sentiment', 'N/A')}")
+            st.write(f"🏷️ **Topics:** {', '.join(article.get('Topics', []))}")
 
-        for article in data["Articles"]:
-            st.subheader(article["Title"])
-            st.write(f"📝 **Summary:** {article['Summary']}")
-            st.write(f"📌 **Sentiment:** {article['Sentiment']}")
-            st.write(f"🏷️ **Topics:** {', '.join(article['Topics'])}")
-
+        # Display Comparative Sentiment Score
         st.subheader("📊 Comparative Sentiment Analysis")
-        st.json(data["Comparative Sentiment Score"])
+        st.json(data.get('Comparative Sentiment Score', {}))
 
-        st.subheader("🔊 Hindi Text-to-Speech")
-        st.audio("static/output.mp3")
+        # Play the TTS audio for the company
+        audio_file = data.get('TTS_Audio', None)
+        if audio_file:
+            st.subheader("🔊 Hindi Text-to-Speech")
+            st.audio(audio_file)
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"❌ Error fetching data: {e}")
