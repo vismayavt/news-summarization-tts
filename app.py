@@ -14,5 +14,5 @@ def get_news():
     return jsonify(output)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 7860))  # Get PORT from environment
-    app.run(host='0.0.0.0', port=port)  # Run Flask without debug mode
+    port = int(os.environ.get("PORT", 7860))  # ✅ Get PORT from environment
+    app.run(host='0.0.0.0', port=port)  # ✅ Run Flask without debug mode
