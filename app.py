@@ -1,46 +1,33 @@
-import os
-from flask import Flask, jsonify, request
-from gtts import gTTS  # Import gTTS for TTS
+from flask import Flask, request, jsonify
+from utils import fetch_news, summarize_text, analyze_sentiment, generate_tts
 
 app = Flask(__name__)
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return "Hello, Hugging Face!"  # Mapped to home route
+    return jsonify({"message": "News Summarization API is running!"})
 
-
-@app.route("/news")
+@app.route("/news", methods=["POST"])
 def get_news():
-    company_name = request.args.get("company", "Tesla")
+    data = request.get_json()
+    query = data.get("query", "")
 
-    # Generate dynamic TTS for the company
-    text_to_speech(company_name)
+    if not query:
+        return jsonify({"error": "Query parameter is missing"}), 400
 
-    # Dummy data for articles, replace with actual logic to fetch news
-    articles = [
-        {"Title": f"News about {company_name}", "Summary": f"Some summary for {company_name}", "Sentiment": "Positive", "Topics": ["Technology", "Business"]},
-    ]
-    
-    # Prepare response with audio file path and articles
-    response = {
-        "Company": company_name,
-        "Articles": articles,
-        "Comparative Sentiment Score": {"positive": 70, "negative": 30},
-        "TTS_Audio": f"/static/{company_name}_output.mp3"  # Path to the generated audio
-    }
+    news_text, error = fetch_news(query)
+    if error:
+        return jsonify({"error": error}), 500
 
-    return jsonify(response)
+    summary = summarize_text(news_text)
+    sentiment = analyze_sentiment(summary)
 
-def text_to_speech(company_name):
-    # Generate speech using gTTS (Google Text-to-Speech)
-    text = f"Here is the latest news for {company_name}"
-    tts = gTTS(text=text, lang='hi')  # Language set to Hindi (you can change it)
-    
-    # Define the path to save the TTS audio file
-    audio_path = f"static/{company_name}_output.mp3"
-    
-    # Save the audio to a file
-    tts.save(audio_path)
+    return jsonify({
+        "summary": summary,
+        "sentiment": sentiment
+    })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=False)
+
+

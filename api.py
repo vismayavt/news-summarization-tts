@@ -1,22 +1,48 @@
-from utils import fetch_news, summarize_text, analyze_sentiment, extract_topics, compare_sentiments, text_to_speech_hindi
+from flask import Flask, request, jsonify
+from utils import fetch_news, summarize_text, analyze_sentiment, generate_tts
+import traceback
 
-def generate_output(company_name):
-    articles = fetch_news(company_name)
+app = Flask(__name__)
 
-    for article in articles:
-        article["Summary"] = summarize_text(article["Content"])
-        article["Sentiment"] = analyze_sentiment(article["Content"])
-        article["Topics"] = extract_topics(article["Content"])
+@app.route('/news', methods=['POST'])
+def get_news():
+    try:
+        data = request.get_json()
+        query = data.get("query")
 
-    sentiment_comparison = compare_sentiments(articles)
+        if not query:
+            return jsonify({"error": "No query provided"}), 400
 
-    final_report = {
-        "Company": company_name,
-        "Articles": articles,
-        "Comparative Sentiment Score": sentiment_comparison,
-        "Final Sentiment Analysis": f"{company_name}’s latest news coverage is mostly positive."
-    }
+        # Fetch news articles from NewsAPI
+        news_content, error = fetch_news(query)
+        if error:
+            return jsonify({"error": error}), 500
 
-    text_to_speech_hindi(final_report["Final Sentiment Analysis"])
+        # Summarize the extracted news
+        summary = summarize_text(news_content)
 
-    return final_report
+        # Perform sentiment analysis
+        sentiment = analyze_sentiment(summary)
+
+        # Convert summarized text to speech
+        audio_path = generate_tts(summary)
+
+        return jsonify({
+            "summary": summary,
+            "sentiment": sentiment,
+            "audio": audio_path
+        })
+
+    except Exception as e:
+        print("Error:", e)
+        print(traceback.format_exc())  # 🔹 Log full traceback for debugging
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"message": "News Summarization API is running!"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5001, debug=False)
+
+
