@@ -1,10 +1,8 @@
 import streamlit as st
 import requests
-import time
 
-API_URL = "http://127.0.0.1:5002"  # Localhost
-
-
+# Flask API URL
+API_URL = "http://127.0.0.1:5002"  # Change if running on a different server
 
 st.title("📰 News Analysis & Hindi TTS")
 
@@ -21,11 +19,18 @@ if st.button("Fetch News"):
             articles = response.json().get("articles", [])
             if articles:
                 st.success(f"Fetched {len(articles)} articles related to {company_name}.")
+                
                 for i, article in enumerate(articles):
+                    print(f"🔍 DEBUG: Article {i+1} Data →", article)  # ✅ Debug each article
+
+                    if not isinstance(article, dict):  
+                        st.warning(f"Unexpected data format for article {i+1}.")
+                        continue  # Skip invalid articles
+                    
                     st.subheader(f"📰 Article {i+1}")
-                    st.write(f"**Title:** {article['title']}")
+                    st.write(f"**Title:** {article.get('title', 'No title available')}")
                     st.write(f"**Description:** {article.get('description', 'No description available.')}")
-                    st.write(f"[Read More]({article['url']})")
+                    st.write(f"[Read More]({article.get('url', '#')})")
 
                     # ---- SUMMARIZATION ---- #
                     summary_text = article.get("content", article.get("description", ""))
@@ -54,18 +59,20 @@ if st.button("Fetch News"):
                                 else:
                                     st.warning(f"😐 **Sentiment:** {sentiment_label} ({sentiment_score:.2f})")
 
-                            # ---- TTS (Hindi) ---- #
-                            with st.spinner("Generating Hindi speech..."):
-                                tts_response = requests.post(f"{API_URL}/tts", json={"text": summary, "lang": "hi"})
+                                # ---- TTS (Hindi) ---- #
+                                with st.spinner("Generating Hindi speech..."):
+                                    tts_response = requests.post(f"{API_URL}/tts", json={"text": summary, "lang": "hi"})
 
-                            if tts_response.status_code == 200:
-                                audio_url = tts_response.json().get("audio_url", "")
-                                if audio_url:
-                                    st.audio(audio_url, format="audio/mp3")
+                                if tts_response.status_code == 200:
+                                    audio_url = tts_response.json().get("audio_url", "")
+                                    if audio_url:
+                                        st.audio(audio_url, format="audio/mp3")
+                                    else:
+                                        st.error("Error generating Hindi speech.")
                                 else:
                                     st.error("Error generating Hindi speech.")
                             else:
-                                st.error("Error generating Hindi speech.")
+                                st.error("Error in sentiment analysis.")
                         else:
                             st.error("Error in summarization.")
             else:
