@@ -1,48 +1,74 @@
-from flask import Flask, request, jsonify
-from utils import fetch_news, summarize_text, analyze_sentiment, generate_tts
-import traceback
+import streamlit as st
+import requests
+import time
 
-app = Flask(__name__)
+API_URL = "http://127.0.0.1:5002"
 
-@app.route('/news', methods=['POST'])
-def get_news():
-    try:
-        data = request.get_json()
-        query = data.get("query")
+st.title("📰 News Analysis & Hindi TTS")
 
-        if not query:
-            return jsonify({"error": "No query provided"}), 400
+# ---- FETCH NEWS ARTICLES ---- #
+st.header("🔎 Fetch News Articles")
+company_name = st.text_input("Enter company name:")
 
-        # Fetch news articles from NewsAPI
-        news_content, error = fetch_news(query)
-        if error:
-            return jsonify({"error": error}), 500
+if st.button("Fetch News"):
+    if company_name.strip():
+        with st.spinner(f"Fetching news about {company_name}..."):
+            response = requests.post(f"{API_URL}/fetch_news", json={"company": company_name})
 
-        # Summarize the extracted news
-        summary = summarize_text(news_content)
+        if response.status_code == 200:
+            articles = response.json().get("articles", [])
+            if articles:
+                st.success(f"Fetched {len(articles)} articles related to {company_name}.")
+                for i, article in enumerate(articles):
+                    st.subheader(f"📰 Article {i+1}")
+                    st.write(f"**Title:** {article['title']}")
+                    st.write(f"**Description:** {article.get('description', 'No description available.')}")
+                    st.write(f"[Read More]({article['url']})")
 
-        # Perform sentiment analysis
-        sentiment = analyze_sentiment(summary)
+                    # ---- SUMMARIZATION ---- #
+                    summary_text = article.get("content", article.get("description", ""))
+                    if summary_text:
+                        with st.spinner("Summarizing article..."):
+                            summary_response = requests.post(f"{API_URL}/news", json={"text": summary_text})
 
-        # Convert summarized text to speech
-        audio_path = generate_tts(summary)
+                        if summary_response.status_code == 200:
+                            summary = summary_response.json().get("summary", "No summary available.")
+                            st.success("**Summary:**")
+                            st.write(summary)
 
-        return jsonify({
-            "summary": summary,
-            "sentiment": sentiment,
-            "audio": audio_path
-        })
+                            # ---- SENTIMENT ANALYSIS ---- #
+                            with st.spinner("Analyzing sentiment..."):
+                                sentiment_response = requests.post(f"{API_URL}/sentiment", json={"text": summary})
 
-    except Exception as e:
-        print("Error:", e)
-        print(traceback.format_exc())  # 🔹 Log full traceback for debugging
-        return jsonify({"error": str(e)}), 500
+                            if sentiment_response.status_code == 200:
+                                sentiment_data = sentiment_response.json()
+                                sentiment_label = sentiment_data["label"]
+                                sentiment_score = sentiment_data["score"]
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "News Summarization API is running!"})
+                                if sentiment_label == "POSITIVE":
+                                    st.success(f"😊 **Sentiment:** {sentiment_label} ({sentiment_score:.2f})")
+                                elif sentiment_label == "NEGATIVE":
+                                    st.error(f"😞 **Sentiment:** {sentiment_label} ({sentiment_score:.2f})")
+                                else:
+                                    st.warning(f"😐 **Sentiment:** {sentiment_label} ({sentiment_score:.2f})")
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=False)
+                            # ---- TTS (Hindi) ---- #
+                            with st.spinner("Generating Hindi speech..."):
+                                tts_response = requests.post(f"{API_URL}/tts", json={"text": summary, "lang": "hi"})
 
-
+                            if tts_response.status_code == 200:
+                                audio_url = tts_response.json().get("audio_url", "")
+                                if audio_url:
+                                    st.audio(audio_url, format="audio/mp3")
+                                else:
+                                    st.error("Error generating Hindi speech.")
+                            else:
+                                st.error("Error generating Hindi speech.")
+                        else:
+                            st.error("Error in summarization.")
+            else:
+                st.warning("No news articles found.")
+        else:
+            st.error("Failed to fetch news articles.")
+    else:
+        st.warning("Please enter a company name.")
