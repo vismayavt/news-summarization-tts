@@ -93,7 +93,6 @@ def text_to_speech():
     tts_file = generate_tts(text)
     return jsonify({"audio_url": tts_file})
 
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=7860)
+    app.run(host="0.0.0.0", port=5002, debug=False)
 
