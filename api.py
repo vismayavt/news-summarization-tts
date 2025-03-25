@@ -2,7 +2,8 @@ import streamlit as st
 import requests
 import time
 
-API_URL = "http://127.0.0.0.0:5002"  
+API_URL = "http://127.0.0.1:5002"  # Localhost
+
 
 
 st.title("📰 News Analysis & Hindi TTS")
