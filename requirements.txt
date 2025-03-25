@@ -11,5 +11,4 @@ gtts
 flask
 scikit-learn
 python-dotenv
-
-
+textblob
